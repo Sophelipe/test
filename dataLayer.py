@@ -21,8 +21,8 @@ class MydataLayer(caffe.Layer):
 
 		state_dict = ['train', 'test']
 		self._dataLoader = dataLoader({'state':state_dict[self.phase]})
-		top[0].reshape(self._batchSize,3,300,300)
-		top[1].reshape(self._batchSize,3,300,300)
+		top[0].reshape(self._batchSize,3,300,200)
+		top[1].reshape(self._batchSize,3,300,200)
 		top[2].reshape(self._batchSize,1)
 		print 'MydataLayer.setup end'
 
@@ -81,14 +81,20 @@ class dataLoader(object):
 
 		# custom image
 		file1 = os.path.join(rootPath,data[0])
-		img1 = cv2.imread(file1).transpose(2,0,1)
+		# img1 = cv2.imread(file1).transpose(2,0,1)
+		img1 = cv2.imread(file1)
+		img1 = cv2.resize(img1,(200, 300)).transpose(2,0,1)
 
 		# shop image
 		if data[1] == self._pre['file']:
 			img2 = self._pre['img']
+
 		else:
 			file2 = os.path.join(rootPath,data[1])
-			img2 = cv2.imread(file2).transpose(2,0,1)
+
+			# img2 = cv2.imread(file2).transpose(2,0,1)
+			img2 = cv2.imread(file2)
+			img2 = cv2.resize(img2,(200, 300)).transpose(2,0,1)
 			self._pre['file'] = data[1]
 			self._pre['img'] = img2
 

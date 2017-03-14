@@ -12,6 +12,7 @@ from caffe import params as P
 sys.path.insert(0,os.getcwd())
 
 prototxt = './train.prototxt'
+prototxt = './train_siamese.prototxt'
 net = caffe.Net(prototxt, caffe.TRAIN)
 
 # print "\nnet.inputs =", net.inputs
@@ -22,7 +23,13 @@ net = caffe.Net(prototxt, caffe.TRAIN)
 for i in range(10):
 	net.forward()
 	print net.blobs['img_shop'].data.shape
+	# print net.blobs['img_cumstom'].data.shape
 	print net.blobs['conv1'].data.shape
+	# print net.blobs['pool5_spp'].data.shape
+	# print net.blobs['ip1'].data.shape
+	# print net.blobs['conv1_p'].data.shape
 	img = net.blobs['img_shop'].data[0,...].transpose(1,2,0).astype('uint8')
 	cv2.imshow("Image", img)
+	# rsize = cv2.resize(img,(200, 300))
+	# print rsize.shape
 	cv2.waitKey(0)
