@@ -48,3 +48,15 @@ layer {
     }
   }
 }
+layer {
+  name: "spp_layer"
+  type: "SPP"
+  bottom: "conv1_p"
+  top: "spp1"
+  spp_param {
+    pool:1, # MAX=0,AVE=1,STOCHASTIC=2
+    pyramid_height:2, 
+
+  }
+}
+

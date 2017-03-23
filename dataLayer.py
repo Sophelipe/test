@@ -28,12 +28,12 @@ class MydataLayer(caffe.Layer):
 
 	def reshape(self,bottom,top):
 
-		print 'MydataLayer.reshape begin'
+		# print 'MydataLayer.reshape begin'
 		pass
-		print 'MydataLayer.reshape end'
+		# print 'MydataLayer.reshape end'
 
 	def forward(self,bottom,top): 
-		print 'MydataLayer.forward begin'
+		# print 'MydataLayer.forward begin'
 		img_shop, img_cumstion, label = self._dataLoader.load_data()
 		top[0].reshape(self._batchSize,*img_shop.shape)
 		top[1].reshape(self._batchSize,*img_cumstion.shape)
@@ -42,16 +42,16 @@ class MydataLayer(caffe.Layer):
 		top[0].data[0,...] = img_shop
 		top[1].data[0,...] = img_cumstion
 		top[2].data[0,...] = label
-		print 'MydataLayer.forward end'
+		# print 'MydataLayer.forward end'
 		
 	def backward(self, top, propagate_down, bottom):
 		# no back-prop for input layers
-		print 'MydataLayer.backward begin'
+		# print 'MydataLayer.backward begin'
 		pass
-		print 'MydataLayer.backward end'
+		# print 'MydataLayer.backward end'
 
-rootPath = r'D:\LHF\Clothing\DeepFashion'
-evalFile = os.path.join(rootPath, r'Eval\list_eval_partition.txt')
+rootPath = r'/dataset/DeepFashion/DeepFashion-Consumer-to-shop/'
+evalFile = os.path.join(rootPath, r'Eval/list_eval_partition.txt')
 
 class dataLoader(object):
  	"""docstring for ClassName"""
@@ -72,15 +72,9 @@ class dataLoader(object):
 		if self._file:
 			self._file.close()
 
-	def load_data(self):
-		line = self._fileIter.next()
-		while not line.find(self._state)>0:
-			line = self._fileIter.next()
-
-		data = line.split()
-
+	def load_image2(self, file1, file2, data):
+		
 		# custom image
-		file1 = os.path.join(rootPath,data[0])
 		# img1 = cv2.imread(file1).transpose(2,0,1)
 		img1 = cv2.imread(file1)
 		img1 = cv2.resize(img1,(200, 300)).transpose(2,0,1)
@@ -90,8 +84,8 @@ class dataLoader(object):
 			img2 = self._pre['img']
 
 		else:
-			file2 = os.path.join(rootPath,data[1])
-
+			if not os.path.isfile(file2):
+				return self.load_data()
 			# img2 = cv2.imread(file2).transpose(2,0,1)
 			img2 = cv2.imread(file2)
 			img2 = cv2.resize(img2,(200, 300)).transpose(2,0,1)
@@ -99,3 +93,22 @@ class dataLoader(object):
 			self._pre['img'] = img2
 
 		return img2, img1, 1
+
+	def get_raw_data(self):
+		line = self._fileIter.next()
+		while not line.find(self._state)>0:
+			line = self._fileIter.next()
+
+		return line.split()
+
+	def load_data(self):
+		file1 = ""
+		file2 = ""
+		while not (os.path.exists(file1) and os.path.exists(file2)):
+			data = self.get_raw_data()
+			file1 = os.path.join(rootPath,data[0])
+			file2 = os.path.join(rootPath,data[1])
+			file_path1 = os.path.basename(file1)
+			file_path2 = os.path.basename(file2)
+
+		return self.load_image2(file1, file2, data)

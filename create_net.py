@@ -12,7 +12,7 @@ from caffe import params as P
 sys.path.insert(0,os.getcwd())
 
 prototxt = './train.prototxt'
-prototxt = './train_siamese.prototxt'
+# prototxt = './train_siamese.prototxt'
 net = caffe.Net(prototxt, caffe.TRAIN)
 
 # print "\nnet.inputs =", net.inputs

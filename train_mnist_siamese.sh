@@ -1,6 +1,6 @@
 #!/usr/bin/env sh
 set -e
 
-TOOLS=D:/LHF/caffe/caffe/Build/x64/Release
+TOOLS=./build_py/tools
 
-$TOOLS/caffe train --solver=train_siamese_solver.prototxt $@
+$TOOLS/caffe train --solver=examples/tes/train_siamese_solver.prototxt $@
