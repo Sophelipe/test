@@ -1,0 +1,62 @@
+name: "myLayer"
+layer {
+  name: 'data'
+  type: 'Python'
+  top: 'img_shop'
+  top: 'img_cumstom'
+  top: 'label'
+  python_param {
+    module: 'dataLayer'
+    layer: 'MydataLayer'
+  }
+}
+layer {
+  name: "conv1"
+  type: "Convolution"
+  bottom: "img_shop"
+  top: "conv1"
+  convolution_param {
+    num_output: 10
+    kernel_size: 3
+    stride: 2
+    weight_filler {
+      type: "gaussian"
+      std: 0.01
+    }
+    bias_filler {
+      type: "constant"
+      value: 0
+    }
+  }
+}
+layer {
+  name: "conv1_p"
+  type: "Convolution"
+  bottom: "img_cumstom"
+  top: "conv1_p"
+  convolution_param {
+    num_output: 10
+    kernel_size: 3
+    stride: 2
+    weight_filler {
+      type: "gaussian"
+      std: 0.01
+    }
+    bias_filler {
+      type: "constant"
+      value: 0
+    }
+  }
+}
+layer {
+  name: "spp_layer"
+  type: "SPP"
+  bottom: "conv1_p"
+  top: "spp1"
+  spp_param {
+    pool:1, # MAX=0,AVE=1,STOCHASTIC=2
+    pyramid_height:2, 
+
+  }
+}
+

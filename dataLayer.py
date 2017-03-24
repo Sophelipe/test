@@ -7,6 +7,7 @@ import caffe
 import os
 import numpy as np
 import cv2
+import platform
 from itertools import islice
 
 class MydataLayer(caffe.Layer):
@@ -20,7 +21,7 @@ class MydataLayer(caffe.Layer):
 			   raise Exception('must have exactly 3 outputs')
 
 		state_dict = ['train', 'test']
-		self._dataLoader = dataLoader({'state':state_dict[self.phase]})
+		self._dataloader = DataLoader({'state':state_dict[self.phase]})
 		top[0].reshape(self._batchSize,3,300,200)
 		top[1].reshape(self._batchSize,3,300,200)
 		top[2].reshape(self._batchSize,1)
@@ -34,14 +35,27 @@ class MydataLayer(caffe.Layer):
 
 	def forward(self,bottom,top): 
 		# print 'MydataLayer.forward begin'
-		img_shop, img_cumstion, label = self._dataLoader.load_data()
-		top[0].reshape(self._batchSize,*img_shop.shape)
-		top[1].reshape(self._batchSize,*img_cumstion.shape)
+		shoplist = []
+		customlist = []
+		labellist = []
+		for i in range(self._batchSize):
+			img_shop, img_custom, label = dataloader.load_data()
+			shoplist.append(img_shop)
+			customlist.append(img_custom)
+			labellist.append(1)
+
+		shoplist = np.array(shoplist)
+		customlist = np.array(customlist)
+		labellist = np.array(labellist)
+
+		img_shop, img_cumstion, label = self._dataloader.load_data()
+		top[0].reshape(shoplist)
+		top[1].reshape(customlist)
 
 		# do your magic here... feed **one** batch to `top`
-		top[0].data[0,...] = img_shop
-		top[1].data[0,...] = img_cumstion
-		top[2].data[0,...] = label
+		top[0].data[...] = shoplist
+		top[1].data[...] = customlist
+		top[2].data[...] = labellist
 		# print 'MydataLayer.forward end'
 		
 	def backward(self, top, propagate_down, bottom):
@@ -51,12 +65,55 @@ class MydataLayer(caffe.Layer):
 		# print 'MydataLayer.backward end'
 
 rootPath = r'/dataset/DeepFashion/DeepFashion-Consumer-to-shop/'
+if platform.system() == 'Windows':
+	rootPath = r'D:/LHF/Clothing/DeepFashion/'
+
 evalFile = os.path.join(rootPath, r'Eval/list_eval_partition.txt')
 
-class dataLoader(object):
+class MyfeatureLayer(caffe.Layer):
+	def setup(self, bottom, top):
+		print 'MyfeatureLayer.setup begin'
+		
+		if len(bottom) != 2:
+			   raise Exception('must have 2 inputs')
+
+		if len(top) != 2:
+			   raise Exception('must have exactly 2 outputs')
+
+		self._batchSize = len(bottom[0])
+
+		model = r'../../models/bvlc_googlenet/bvlc_googlenet.caffemodel'
+		deploy = r'../../models/bvlc_googlenet/deploy.prototxt'
+
+		self._net = caffe.Net(deploy, model, caffe.TEST)
+		top[0].reshape(self._batchSize,3,224,224)
+		top[1].reshape(self._batchSize,3,224,224)
+		print 'MyfeatureLayer.setup end'
+
+	def reshape(self,bottom,top):
+		pass
+
+	def forward(self,bottom,top): 
+		net_input = []
+		net_input.extend(bottom[0])
+		net_input.extend(bottom[1])
+
+		self._net.blobs['data'].reshape(*net_input.shape)
+		self._net.blobs['data'].data[...] = net_input[0]
+		self._net.forward()
+		feature1 = self.blobs['pool5/7x7_s1'].data[:self._batchSize,...]
+		feature2 = self.blobs['pool5/7x7_s1'].data[self._batchSize:,...]
+
+		top[0].reshape(feature1)
+		top[0].reshape(feature2)
+		
+	def backward(self,bottom,top):
+		pass
+
+class DataLoader(object):
  	"""docstring for ClassName"""
  	def __init__(self, param):
-		print 'dataLoader.__init__'
+		print 'DataLoader.__init__'
 
 		self._state = param['state']
 		self._pre = {'file':'', 'img':''}
@@ -68,7 +125,7 @@ class dataLoader(object):
 			exit()
 
 	def __del__(self):
-		print 'dataLoader.__del__'
+		print 'DataLoader.__del__'
 		if self._file:
 			self._file.close()
 
@@ -77,7 +134,7 @@ class dataLoader(object):
 		# custom image
 		# img1 = cv2.imread(file1).transpose(2,0,1)
 		img1 = cv2.imread(file1)
-		img1 = cv2.resize(img1,(200, 300)).transpose(2,0,1)
+		img1 = cv2.resize(img1,(224, 224)).transpose(2,0,1)
 
 		# shop image
 		if data[1] == self._pre['file']:
@@ -88,7 +145,7 @@ class dataLoader(object):
 				return self.load_data()
 			# img2 = cv2.imread(file2).transpose(2,0,1)
 			img2 = cv2.imread(file2)
-			img2 = cv2.resize(img2,(200, 300)).transpose(2,0,1)
+			img2 = cv2.resize(img2,(224, 224)).transpose(2,0,1)
 			self._pre['file'] = data[1]
 			self._pre['img'] = img2
 
