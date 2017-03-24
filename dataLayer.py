@@ -39,7 +39,7 @@ class MydataLayer(caffe.Layer):
 		customlist = []
 		labellist = []
 		for i in range(self._batchSize):
-			img_shop, img_custom, label = dataloader.load_data()
+			img_shop, img_custom, label = self._dataloader.load_data()
 			shoplist.append(img_shop)
 			customlist.append(img_custom)
 			labellist.append(1)
@@ -49,8 +49,8 @@ class MydataLayer(caffe.Layer):
 		labellist = np.array(labellist)
 
 		img_shop, img_cumstion, label = self._dataloader.load_data()
-		top[0].reshape(shoplist)
-		top[1].reshape(customlist)
+		top[0].reshape(*shoplist.shape)
+		top[1].reshape(*customlist.shape)
 
 		# do your magic here... feed **one** batch to `top`
 		top[0].data[...] = shoplist
@@ -80,7 +80,7 @@ class MyfeatureLayer(caffe.Layer):
 		if len(top) != 2:
 			   raise Exception('must have exactly 2 outputs')
 
-		self._batchSize = len(bottom[0])
+		self._batchSize = len(bottom[0].data[...])
 
 		model = r'../../models/bvlc_googlenet/bvlc_googlenet.caffemodel'
 		deploy = r'../../models/bvlc_googlenet/deploy.prototxt'
@@ -95,17 +95,19 @@ class MyfeatureLayer(caffe.Layer):
 
 	def forward(self,bottom,top): 
 		net_input = []
-		net_input.extend(bottom[0])
-		net_input.extend(bottom[1])
-
+		net_input.extend(bottom[0].data[...])
+		net_input.extend(bottom[1].data[...])
+		net_input = np.array(net_input)
+		# print net_input.shape
 		self._net.blobs['data'].reshape(*net_input.shape)
-		self._net.blobs['data'].data[...] = net_input[0]
+		self._net.blobs['data'].data[...] = net_input
 		self._net.forward()
-		feature1 = self.blobs['pool5/7x7_s1'].data[:self._batchSize,...]
-		feature2 = self.blobs['pool5/7x7_s1'].data[self._batchSize:,...]
 
-		top[0].reshape(feature1)
-		top[0].reshape(feature2)
+		feature1 = self._net.blobs['pool5/7x7_s1'].data[:self._batchSize,...]
+		feature2 = self._net.blobs['pool5/7x7_s1'].data[self._batchSize:,...]
+
+		top[0].reshape(*feature1.shape)
+		top[0].reshape(*feature2.shape)
 		
 	def backward(self,bottom,top):
 		pass
