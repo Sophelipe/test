@@ -125,17 +125,25 @@ class DataLoader(object):
 
 		self._state = param['state']
 		self._pre = {'file':'', 'img':''}
+
+		self.open_eval()
+
+	def __del__(self):
+		print 'DataLoader.__del__'
+		if self._file:
+			self._file.close()
+
+	def open_eval(self):
+		if hasattr(self,'_file') and self._file:
+			print 're-open file:%s' % evalFile
+			self._file.close()
+
 		try:
 			self._file = open(evalFile)
 			self._fileIter = islice(self._file, 2, None)
 		except:  
 			print "Failed to open file: %s" % evalFile
 			exit()
-
-	def __del__(self):
-		print 'DataLoader.__del__'
-		if self._file:
-			self._file.close()
 
 	def load_image2(self, file1, file2, data):
 		
@@ -159,11 +167,15 @@ class DataLoader(object):
 		return img2, img1, 1
 
 	def get_raw_data(self):
-		line = self._fileIter.next()
-		while not line.find(self._state)>0:
+		try:
 			line = self._fileIter.next()
+			while not line.find(self._state)>0:
+				line = self._fileIter.next()
 
-		return line.split()
+			return line.split()
+		except StopIteration:
+			self.open_eval()
+			return self.get_raw_data()
 
 	def load_data(self):
 		file1 = ""
