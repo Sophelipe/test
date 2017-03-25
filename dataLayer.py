@@ -13,7 +13,7 @@ from itertools import islice
 class MydataLayer(caffe.Layer):
 	def setup(self, bottom, top):
 		print 'MydataLayer.setup begin'
-		self._batchSize = 1
+		self._batchSize = 2
 		if len(bottom) != 0:
 			   raise Exception('must have no input')
 
@@ -101,7 +101,7 @@ class MyfeatureLayer(caffe.Layer):
 		net_input.extend(bottom[0].data[...])
 		net_input.extend(bottom[1].data[...])
 		net_input = np.array(net_input)
-		# print net_input.shape
+
 		self._net.blobs['data'].reshape(*net_input.shape)
 		self._net.blobs['data'].data[...] = net_input
 		self._net.forward()
@@ -110,8 +110,10 @@ class MyfeatureLayer(caffe.Layer):
 		feature2 = self._net.blobs['pool5/7x7_s1'].data[self._batchSize:,...]
 
 		top[0].reshape(*feature1.shape)
-		top[0].reshape(*feature2.shape)
-		
+		top[1].reshape(*feature2.shape)
+		top[0].data[...] = feature1
+		top[1].data[...] = feature2
+
 	def backward(self,bottom,top):
 		pass
 
