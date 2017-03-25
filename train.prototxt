@@ -22,3 +22,14 @@ layer {
     layer: 'MyfeatureLayer'
   }
 }
+layer {
+  name: "loss"
+  type: "ContrastiveLoss"
+  bottom: "shop_feature"
+  bottom: "cumstom_feature"
+  bottom: "label"
+  top: "loss"
+  contrastive_loss_param {
+    margin: 1
+  }
+}

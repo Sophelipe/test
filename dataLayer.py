@@ -24,7 +24,7 @@ class MydataLayer(caffe.Layer):
 		self._dataloader = DataLoader({'state':state_dict[self.phase]})
 		top[0].reshape(self._batchSize,3,300,200)
 		top[1].reshape(self._batchSize,3,300,200)
-		top[2].reshape(self._batchSize,1)
+		top[2].reshape(self._batchSize,1,1,1)
 		print 'MydataLayer.setup end'
 
 	def reshape(self,bottom,top):
@@ -47,6 +47,7 @@ class MydataLayer(caffe.Layer):
 		shoplist = np.array(shoplist)
 		customlist = np.array(customlist)
 		labellist = np.array(labellist)
+		labellist = labellist.reshape(self._batchSize,1,1,1)
 
 		img_shop, img_cumstion, label = self._dataloader.load_data()
 		top[0].reshape(*shoplist.shape)
@@ -56,6 +57,8 @@ class MydataLayer(caffe.Layer):
 		top[0].data[...] = shoplist
 		top[1].data[...] = customlist
 		top[2].data[...] = labellist
+
+		#　print top[2].data[...].shape
 		# print 'MydataLayer.forward end'
 		
 	def backward(self, top, propagate_down, bottom):
@@ -86,8 +89,8 @@ class MyfeatureLayer(caffe.Layer):
 		deploy = r'../../models/bvlc_googlenet/deploy.prototxt'
 
 		self._net = caffe.Net(deploy, model, caffe.TEST)
-		top[0].reshape(self._batchSize,3,224,224)
-		top[1].reshape(self._batchSize,3,224,224)
+		top[0].reshape(self._batchSize,1024,1,1)
+		top[1].reshape(self._batchSize,1024,1,1)
 		print 'MyfeatureLayer.setup end'
 
 	def reshape(self,bottom,top):
@@ -141,7 +144,6 @@ class DataLoader(object):
 		# shop image
 		if data[1] == self._pre['file']:
 			img2 = self._pre['img']
-
 		else:
 			if not os.path.isfile(file2):
 				return self.load_data()
