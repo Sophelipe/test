@@ -68,8 +68,12 @@ class MydataLayer(caffe.Layer):
 		# print 'MydataLayer.backward end'
 
 rootPath = r'/dataset/DeepFashion/DeepFashion-Consumer-to-shop/'
+model = r'/caffe/models/bvlc_googlenet/bvlc_googlenet.caffemodel'
+deploy = r'/caffe/models/bvlc_googlenet/deploy.prototxt'	
 if platform.system() == 'Windows':
 	rootPath = r'D:/LHF/Clothing/DeepFashion/'
+	model = r'../../models/bvlc_googlenet/bvlc_googlenet.caffemodel'
+	deploy = r'../../models/bvlc_googlenet/deploy.prototxt'
 
 evalFile = os.path.join(rootPath, r'Eval/list_eval_partition.txt')
 
@@ -84,9 +88,6 @@ class MyfeatureLayer(caffe.Layer):
 			   raise Exception('must have exactly 2 outputs')
 
 		self._batchSize = len(bottom[0].data[...])
-
-		model = r'../../models/bvlc_googlenet/bvlc_googlenet.caffemodel'
-		deploy = r'../../models/bvlc_googlenet/deploy.prototxt'
 
 		self._net = caffe.Net(deploy, model, caffe.TEST)
 		top[0].reshape(self._batchSize,1024,1,1)
