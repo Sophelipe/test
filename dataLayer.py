@@ -13,7 +13,15 @@ from itertools import islice
 class MydataLayer(caffe.Layer):
 	def setup(self, bottom, top):
 		print 'MydataLayer.setup begin'
-		self._batchSize = 2
+		# self._batchSize = 2
+		params = eval(self.param_str)
+
+		# Check the paramameters for validity.
+		check_params(params)
+
+		# store input as class variables
+		self._batchSize = params['batch_size']
+
 		if len(bottom) != 0:
 			   raise Exception('must have no input')
 
@@ -188,3 +196,13 @@ class DataLoader(object):
 			file_path2 = os.path.basename(file2)
 
 		return self.load_image2(file1, file2, data)
+
+
+def check_params(params):
+    """
+    A utility function to check the parameters for the data layers.
+    """
+    
+    required = ['batch_size',]
+    for r in required:
+        assert r in params.keys(), 'Params must include {}'.format(r)
