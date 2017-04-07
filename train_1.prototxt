@@ -4,7 +4,9 @@ layer {
   type: 'Python'
   top: 'img_shop'
   top: 'img_cumstom'
-  top: 'label'
+  top: 'sim'
+  top: 'label_shop'
+  top: 'label_custom'
   python_param {
     module: 'dataLayer'
     layer: 'MydataLayer'
@@ -12,10 +14,20 @@ layer {
   }
 }
 layer {
-  name: "concat"
+  name: "img_concat"
   bottom: "img_shop"
   bottom: "img_cumstom"
-  top: "out"
+  top: "img_out"
+  type: "Concat"
+  concat_param {
+    axis: 0
+  }
+}
+layer {
+  name: "label_concat"
+  bottom: "label_shop"
+  bottom: "label_custom"
+  top: "label_out"
   type: "Concat"
   concat_param {
     axis: 0
@@ -24,7 +36,7 @@ layer {
 layer {
   name: "conv1/7x7_s2"
   type: "Convolution"
-  bottom: "out"
+  bottom: "img_out"
   top: "conv1/7x7_s2"
   param {
     lr_mult: 1
@@ -2142,6 +2154,48 @@ layer {
   }
 }
 layer {
+  name: "loss3/classifier"
+  type: "InnerProduct"
+  bottom: "pool5/7x7_s1"
+  top: "loss3/classifier"
+  param {
+    lr_mult: 1
+    decay_mult: 1
+  }
+  param {
+    lr_mult: 2
+    decay_mult: 0
+  }
+  inner_product_param {
+    num_output: 1000
+    weight_filler {
+      type: "xavier"
+    }
+    bias_filler {
+      type: "constant"
+      value: 0
+    }
+  }
+}
+layer {
+  name: "loss3/loss3"
+  type: "SoftmaxWithLoss"
+  bottom: "loss3/classifier"
+  bottom: "label_out"
+  top: "loss3/loss3"
+  loss_weight: 1
+}
+layer {
+  name: "loss3/top-1"
+  type: "Accuracy"
+  bottom: "loss3/classifier"
+  bottom: "label_out"
+  top: "loss3/top-1"
+  include {
+    phase: TEST
+  }
+}
+layer {
   name: "slicer"
   type: "Slice"
   bottom: "pool5/7x7_s1"
@@ -2157,7 +2211,7 @@ layer {
   type: "ContrastiveLoss"
   bottom: "shop_feature"
   bottom: "cumstom_feature"
-  bottom: "label"
+  bottom: "sim"
   top: "loss"
   contrastive_loss_param {
     margin: 1

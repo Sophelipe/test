@@ -1,3 +1,10 @@
 *.pyc
 create_net.py
 test.py
+create_net.py
+test.py
+test.py
+test.py
+val_net.sh
+train_val.prototxt
+test.py

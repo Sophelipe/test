@@ -8,7 +8,9 @@ import os
 import numpy as np
 import cv2
 import platform
-from itertools import islice
+import itertools
+import random
+from labelTool import get_dir,LableTool
 
 class MydataLayer(caffe.Layer):
 	def setup(self, bottom, top):
@@ -25,14 +27,16 @@ class MydataLayer(caffe.Layer):
 		if len(bottom) != 0:
 			   raise Exception('must have no input')
 
-		if len(top) != 3:
-			   raise Exception('must have exactly 3 outputs')
+		if len(top) != 5:
+			   raise Exception('must have exactly 5 outputs')
 
 		state_dict = ['train', 'test']
 		self._dataloader = DataLoader({'state':state_dict[self.phase]})
-		top[0].reshape(self._batchSize,3,300,200)
-		top[1].reshape(self._batchSize,3,300,200)
+		top[0].reshape(self._batchSize,3,224,224)
+		top[1].reshape(self._batchSize,3,224,224)
 		top[2].reshape(self._batchSize,1,1,1)
+		top[3].reshape(self._batchSize,1,1,1)
+		top[4].reshape(self._batchSize,1,1,1)
 		print 'MydataLayer.setup end'
 
 	def reshape(self,bottom,top):
@@ -45,26 +49,36 @@ class MydataLayer(caffe.Layer):
 		# print 'MydataLayer.forward begin'
 		shoplist = []
 		customlist = []
-		labellist = []
+		simList = []
+		labelShopList = []
+		labelCustomList = []
 		for i in range(self._batchSize):
-			img_shop, img_custom, label = self._dataloader.load_data()
+			img_shop, img_custom, sim, label_shop, label_custom = self._dataloader.load_data()
 			shoplist.append(img_shop)
 			customlist.append(img_custom)
-			labellist.append(1)
+			simList.append(sim)
+			labelShopList.append(label_shop)
+			labelCustomList.append(label_custom)
 
 		shoplist = np.array(shoplist)
 		customlist = np.array(customlist)
-		labellist = np.array(labellist)
-		labellist = labellist.reshape(self._batchSize,1,1,1)
+		simList = np.array(simList)
+		labelShopList = np.array(labelShopList)
+		labelCustomList = np.array(labelCustomList)
+		
+		simList = simList.reshape(self._batchSize,1,1,1)
+		labelShopList = labelShopList.reshape(self._batchSize,1,1,1)
+		labelCustomList = labelCustomList.reshape(self._batchSize,1,1,1)
 
-		img_shop, img_cumstion, label = self._dataloader.load_data()
 		top[0].reshape(*shoplist.shape)
 		top[1].reshape(*customlist.shape)
 
 		# do your magic here... feed **one** batch to `top`
 		top[0].data[...] = shoplist
 		top[1].data[...] = customlist
-		top[2].data[...] = labellist
+		top[2].data[...] = simList
+		top[3].data[...] = labelShopList
+		top[4].data[...] = labelCustomList
 
 		#　print top[2].data[...].shape
 		# print 'MydataLayer.forward end'
@@ -133,7 +147,8 @@ class DataLoader(object):
 
 		self._state = param['state']
 		self._pre = {'file':'', 'img':''}
-
+		label = get_dir(os.path.join(rootPath,'img'), 2)
+		self._labelTool = LableTool(label[1])
 		self.open_eval()
 
 	def __del__(self):
@@ -148,10 +163,21 @@ class DataLoader(object):
 
 		try:
 			self._file = open(evalFile)
-			self._fileIter = islice(self._file, 2, None)
 		except:  
 			print "Failed to open file: %s" % evalFile
 			exit()
+
+		shuffle = True
+		self._fileIter = itertools.islice(self._file, 2, None)
+		if shuffle:
+			# 打乱文件行顺序
+			tmp = list(self._fileIter)
+
+			for i in range(5):
+				random.shuffle(tmp)
+
+			self._fileIter = itertools.cycle(tmp)
+			del tmp
 
 	def load_image2(self, file1, file2, data):
 		
@@ -175,27 +201,31 @@ class DataLoader(object):
 		return img2, img1, 1
 
 	def get_raw_data(self):
-		try:
+		line = self._fileIter.next()
+		while not line.find(self._state)>0:
 			line = self._fileIter.next()
-			while not line.find(self._state)>0:
-				line = self._fileIter.next()
 
-			return line.split()
-		except StopIteration:
-			self.open_eval()
-			return self.get_raw_data()
+		return line.split()
+
 
 	def load_data(self):
 		file1 = ""
 		file2 = ""
+		data = []
 		while not (os.path.exists(file1) and os.path.exists(file2)):
 			data = self.get_raw_data()
 			file1 = os.path.join(rootPath,data[0])
 			file2 = os.path.join(rootPath,data[1])
-			file_path1 = os.path.basename(file1)
-			file_path2 = os.path.basename(file2)
 
-		return self.load_image2(file1, file2, data)
+		file_path1 = os.path.basename(file1)
+		file_path2 = os.path.basename(file2)
+
+		label_shop = data[0].split('/')[2]
+		label_shop = self._labelTool.getLabelIndex(label_shop)
+		label_custom = data[1].split('/')[2]
+		label_custom = self._labelTool.getLabelIndex(label_custom)
+		img_shop, img_custom, sim = self.load_image2(file1, file2, data)
+		return img_shop, img_custom, sim, label_shop, label_custom
 
 
 def check_params(params):

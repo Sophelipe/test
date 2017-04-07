@@ -11,7 +11,7 @@ from caffe import layers as L
 from caffe import params as P
 sys.path.insert(0,os.getcwd())
 
-prototxt = './train.prototxt'
+prototxt = './train_1.prototxt'
 # prototxt = './train_siamese.prototxt'
 net = caffe.Net(prototxt, caffe.TRAIN)
 
