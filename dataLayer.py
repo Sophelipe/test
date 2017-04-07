@@ -23,6 +23,7 @@ class MydataLayer(caffe.Layer):
 
 		# store input as class variables
 		self._batchSize = params['batch_size']
+		self._meanValue = np.array([104,117,123], dtype = np.uint8)[:, np.newaxis, np.newaxis]
 
 		if len(bottom) != 0:
 			   raise Exception('must have no input')
@@ -54,6 +55,9 @@ class MydataLayer(caffe.Layer):
 		labelCustomList = []
 		for i in range(self._batchSize):
 			img_shop, img_custom, sim, label_shop, label_custom = self._dataloader.load_data()
+			img_shop -= self._meanValue
+			img_custom -= self._meanValue
+
 			shoplist.append(img_shop)
 			customlist.append(img_custom)
 			simList.append(sim)
@@ -65,7 +69,7 @@ class MydataLayer(caffe.Layer):
 		simList = np.array(simList)
 		labelShopList = np.array(labelShopList)
 		labelCustomList = np.array(labelCustomList)
-		
+
 		simList = simList.reshape(self._batchSize,1,1,1)
 		labelShopList = labelShopList.reshape(self._batchSize,1,1,1)
 		labelCustomList = labelCustomList.reshape(self._batchSize,1,1,1)
