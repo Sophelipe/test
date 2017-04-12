@@ -12,7 +12,9 @@ import itertools
 import random
 from labelTool import get_dir,LableTool
 
+state_dict = ['train', 'test']
 class MydataLayer(caffe.Layer):
+	
 	def setup(self, bottom, top):
 		print 'MydataLayer.setup begin'
 		# self._batchSize = 2
@@ -20,7 +22,6 @@ class MydataLayer(caffe.Layer):
 
 		# Check the paramameters for validity.
 		check_params(params)
-
 		# store input as class variables
 		self._batchSize = params['batch_size']
 		self._meanValue = np.array([104,117,123], dtype = np.uint8)[:, np.newaxis, np.newaxis]
@@ -31,7 +32,7 @@ class MydataLayer(caffe.Layer):
 		if len(top) != 5:
 			   raise Exception('must have exactly 5 outputs')
 
-		state_dict = ['train', 'test']
+		
 		self._dataloader = DataLoader({'state':state_dict[self.phase]})
 		top[0].reshape(self._batchSize,3,224,224)
 		top[1].reshape(self._batchSize,3,224,224)
@@ -54,9 +55,9 @@ class MydataLayer(caffe.Layer):
 		labelShopList = []
 		labelCustomList = []
 		for i in range(self._batchSize):
-			img_shop, img_custom, sim, label_shop, label_custom = self._dataloader.load_data()
-			img_shop -= self._meanValue
-			img_custom -= self._meanValue
+			img_shop, img_custom, sim, label_shop, label_custom = self._dataloader.load_data(state_dict[self.phase])
+			# img_shop -= self._meanValue
+			# img_custom -= self._meanValue
 
 			shoplist.append(img_shop)
 			customlist.append(img_custom)
@@ -101,7 +102,7 @@ if platform.system() == 'Windows':
 	model = r'../../models/bvlc_googlenet/bvlc_googlenet.caffemodel'
 	deploy = r'../../models/bvlc_googlenet/deploy.prototxt'
 
-evalFile = os.path.join(rootPath, r'Eval/list_eval_partition.txt')
+evalFile = os.path.join(rootPath, r'Eval/list_eval_partition.txt.neg')
 
 class MyfeatureLayer(caffe.Layer):
 	def setup(self, bottom, top):
@@ -202,7 +203,14 @@ class DataLoader(object):
 			self._pre['file'] = data[1]
 			self._pre['img'] = img2
 
-		return img2, img1, 1
+		# similarity
+		sim = 1
+		labelPos = 5
+		if len(data) >= labelPos:
+			sim = int(data[labelPos-1])
+
+		print len(data),sim
+		return img2, img1, sim
 
 	def get_raw_data(self):
 		line = self._fileIter.next()
@@ -212,14 +220,16 @@ class DataLoader(object):
 		return line.split()
 
 
-	def load_data(self):
+	def load_data(self, state = None):
+		if state != None:
+			self._state = state
 		file1 = ""
 		file2 = ""
 		data = []
 		while not (os.path.exists(file1) and os.path.exists(file2)):
 			data = self.get_raw_data()
-			file1 = os.path.join(rootPath,data[0])
-			file2 = os.path.join(rootPath,data[1])
+			file1 = os.path.join(rootPath,'a',data[0])
+			file2 = os.path.join(rootPath,'a',data[1])
 
 		file_path1 = os.path.basename(file1)
 		file_path2 = os.path.basename(file2)
