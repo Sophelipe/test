@@ -20,7 +20,7 @@ layer {
   top: "img_out"
   type: "Concat"
   concat_param {
-    axis: 0
+    axis: 1
   }
 }
 layer {
@@ -495,8 +495,20 @@ layer {
   }
 }
 layer {
-  name: "fc8"
-  type: "Softmax"
+  name: "loss"
+  type: "SoftmaxWithLoss"
   bottom: "fc8"
-  top: "prob"
+  bottom: "sim"
+  top: "loss"
+  loss_weight: 1
+}
+layer {
+  name: "Accuracy"
+  type: "Accuracy"
+  bottom: "fc8"
+  bottom: "sim"
+  top: "accuracy"
+  include {
+    phase: TEST
+  }
 }
