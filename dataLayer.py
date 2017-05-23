@@ -190,15 +190,37 @@ class DataLoader(object):
 
 		shuffle = True
 		self._fileIter = itertools.islice(self._file, 2, None)
+		tmp = list(self._fileIter)
+		train = []
+		test = []
+		val = []
+
+		for line in tmp:
+			data = line.split()
+			file1 = os.path.join(rootPath,'a',data[0])
+			file2 = os.path.join(rootPath,'a',data[1])
+			if (os.path.exists(file1) and os.path.exists(file2)):
+				if line.find('test')>0:
+					test.append(line)
+				elif line.find('train')>0:
+					train.append(line)
+				else:
+					val.append(line)
+
 		if shuffle:
 			# 打乱文件行顺序
-			tmp = list(self._fileIter)
-
 			for i in range(5):
-				random.shuffle(tmp)
+				random.shuffle(train)
+				random.shuffle(test)
+				random.shuffle(val)
 
-			self._fileIter = itertools.cycle(tmp)
-			del tmp
+		self.test_fileIter = itertools.cycle(test)
+		self.train_fileIter = itertools.cycle(train)
+		self.val_fileIter = itertools.cycle(val)
+		self._fileIter = self.test_fileIter
+
+		print "size = %s, test = %s, val = %s" % (len(train), len(test), len(val))
+		del tmp, test, train, val
 
 	def load_image2(self, file1, file2, data):
 		
@@ -229,23 +251,25 @@ class DataLoader(object):
 		return img2, img1, sim
 
 	def get_raw_data(self):
-		line = self._fileIter.next()
-		while not line.find(self._state)>0:
-			line = self._fileIter.next()
+		if self._state == 'test':
+			self._fileIter = self.test_fileIter
+		elif self._state == 'train':
+			self._fileIter = self.train_fileIter
+		else:
+			self._fileIter = self.val_fileIter
 
+		line = self._fileIter.next()
 		return line.split()
 
 
 	def load_data(self, state = None):
 		if state != None:
 			self._state = state
-		file1 = ""
-		file2 = ""
-		data = []
-		while not (os.path.exists(file1) and os.path.exists(file2)):
-			data = self.get_raw_data()
-			file1 = os.path.join(rootPath,'a',data[0])
-			file2 = os.path.join(rootPath,'a',data[1])
+			
+		data = self.get_raw_data()
+		file1 = os.path.join(rootPath,'a',data[0])
+		file2 = os.path.join(rootPath,'a',data[1])
+
 
 		file_path1 = os.path.basename(file1)
 		file_path2 = os.path.basename(file2)
