@@ -24,21 +24,29 @@ class MydataLayer(caffe.Layer):
 		check_params(params)
 		# store input as class variables
 		self._batchSize = params['batch_size']
+		self._towlabel = params['towlabel']
+		self._topnum = 3
+		if self._towlabel != None and self._towlabel == True:
+			self._topnum += 1
 		self._meanValue = np.array([104,117,123], dtype = np.uint8)[:, np.newaxis, np.newaxis]
 
 		if len(bottom) != 0:
 			   raise Exception('must have no input')
 
-		if len(top) != 5:
-			   raise Exception('must have exactly 5 outputs')
+		if len(top) != self._topnum :
+			   raise Exception('must have exactly %s outputs' % self._topnum )
 
 		
 		self._dataloader = DataLoader({'state':state_dict[self.phase]})
+
 		top[0].reshape(self._batchSize,3,224,224)
 		top[1].reshape(self._batchSize,3,224,224)
 		top[2].reshape(self._batchSize,1,1,1)
-		top[3].reshape(self._batchSize,1,1,1)
-		top[4].reshape(self._batchSize,1,1,1)
+		if self._towlabel != None and self._towlabel == True:
+			top[3].reshape(self._batchSize,2,1,1)
+
+		# top[3].reshape(self._batchSize,1,1,1)
+		# top[4].reshape(self._batchSize,1,1,1)
 		print 'MydataLayer.setup end'
 
 	def reshape(self,bottom,top):
@@ -52,12 +60,15 @@ class MydataLayer(caffe.Layer):
 		shoplist = []
 		customlist = []
 		simList = []
+		towsimList = []
 		labelShopList = []
 		labelCustomList = []
 		for i in range(self._batchSize):
 			img_shop, img_custom, sim, label_shop, label_custom = self._dataloader.load_data(state_dict[self.phase])
 			# img_shop -= self._meanValue
 			# img_custom -= self._meanValue
+			if self._towlabel != None and self._towlabel == True:
+				towsimList.append([sim, 1-sim])
 
 			shoplist.append(img_shop)
 			customlist.append(img_custom)
@@ -82,8 +93,13 @@ class MydataLayer(caffe.Layer):
 		top[0].data[...] = shoplist
 		top[1].data[...] = customlist
 		top[2].data[...] = simList
-		top[3].data[...] = labelShopList
-		top[4].data[...] = labelCustomList
+
+		if self._towlabel != None and self._towlabel == True:
+			towsimList = np.array(towsimList)
+			towsimList = towsimList.reshape(self._batchSize,2,1,1)
+			top[3].data[...] = towsimList
+		# top[3].data[...] = labelShopList
+		# top[4].data[...] = labelCustomList
 
 		#　print top[2].data[...].shape
 		# print 'MydataLayer.forward end'
@@ -209,7 +225,7 @@ class DataLoader(object):
 		if len(data) >= labelPos:
 			sim = int(data[labelPos-1])
 
-		print len(data),sim
+		#print len(data),sim
 		return img2, img1, sim
 
 	def get_raw_data(self):
