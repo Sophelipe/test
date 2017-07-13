@@ -5,12 +5,11 @@ layer {
   top: 'img_shop'
   top: 'img_cumstom'
   top: 'sim'
-  top: 'label_shop'
-  top: 'label_custom'
+  top: 'twosim'
   python_param {
     module: 'dataLayer'
     layer: 'MydataLayer'
-    param_str: "{'batch_size': 10}"
+    param_str: "{'batch_size': 10, 'towlabel': True }"
   }
 }
 layer {
@@ -18,16 +17,6 @@ layer {
   bottom: "img_shop"
   bottom: "img_cumstom"
   top: "img_out"
-  type: "Concat"
-  concat_param {
-    axis: 1
-  }
-}
-layer {
-  name: "label_concat"
-  bottom: "label_shop"
-  bottom: "label_custom"
-  top: "label_out"
   type: "Concat"
   concat_param {
     axis: 0
@@ -446,7 +435,28 @@ layer {
   }
 }
 layer {
+  name: "slicer"
+  type: "Slice"
   bottom: "fc6"
+  top: "shop_feature"
+  top: "cumstom_feature"
+  slice_param {
+    axis: 0
+    slice_point: 10 ## the batch_size
+  }
+}
+layer {
+  name: "feature_concat"
+  bottom: "shop_feature"
+  bottom: "cumstom_feature"
+  top: "feature_out"
+  type: "Concat"
+  concat_param {
+    axis: 1
+  }
+}
+layer {
+  bottom: "feature_out"
   top: "fc7"
   name: "fc7"
   type: "InnerProduct"
@@ -496,11 +506,10 @@ layer {
 }
 layer {
   name: "loss"
-  type: "SoftmaxWithLoss"
+  type: "SigmoidCrossEntropyLoss"
   bottom: "fc8"
-  bottom: "sim"
+  bottom: "twosim"
   top: "loss"
-  loss_weight: 1
 }
 layer {
   name: "Accuracy"
@@ -508,7 +517,4 @@ layer {
   bottom: "fc8"
   bottom: "sim"
   top: "accuracy"
-  include {
-    phase: TEST
-  }
 }
