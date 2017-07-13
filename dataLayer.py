@@ -3,6 +3,8 @@
 # @Date    : 2017-03-12 16:45:57
 # @Author  : FelipeLi 
 
+import sys
+sys.path.append(r'/caffe/python/')
 import caffe
 import os
 import numpy as np
@@ -10,9 +12,22 @@ import cv2
 import platform
 import itertools
 import random
+import h5py as h5
 from labelTool import get_dir,LableTool
 
 state_dict = ['train', 'test']
+rootPath = r'/dataset/DeepFashion/DeepFashion-Consumer-to-shop/'
+model = r'/caffe/models/bvlc_googlenet/bvlc_googlenet.caffemodel'
+deploy = r'/caffe/models/bvlc_googlenet/deploy.prototxt'
+meanfile = r'/caffe/python/caffe/imagenet/ilsvrc_2012_mean.npy'
+
+
+if platform.system() == 'Windows':
+	rootPath = r'D:/LHF/Clothing/DeepFashion/'
+	model = r'../../models/bvlc_googlenet/bvlc_googlenet.caffemodel'
+	deploy = r'../../models/bvlc_googlenet/deploy.prototxt'
+
+evalFile = os.path.join(rootPath, r'Eval/list_eval_partition.txt.neg')
 class MydataLayer(caffe.Layer):
 	
 	def setup(self, bottom, top):
@@ -24,9 +39,9 @@ class MydataLayer(caffe.Layer):
 		check_params(params)
 		# store input as class variables
 		self._batchSize = params['batch_size']
-		self._towlabel = params['towlabel']
+		self._towlabel = params.get('towlabel', False)
 		self._topnum = 3
-		if self._towlabel != None and self._towlabel == True:
+		if self._towlabel == True:
 			self._topnum += 1
 		self._meanValue = np.array([104,117,123], dtype = np.uint8)[:, np.newaxis, np.newaxis]
 
@@ -42,6 +57,9 @@ class MydataLayer(caffe.Layer):
 		top[0].reshape(self._batchSize,3,224,224)
 		top[1].reshape(self._batchSize,3,224,224)
 		top[2].reshape(self._batchSize,1,1,1)
+
+		self._transformer = getTransformer(top[0].shape)
+
 		if self._towlabel != None and self._towlabel == True:
 			top[3].reshape(self._batchSize,2,1,1)
 
@@ -67,6 +85,8 @@ class MydataLayer(caffe.Layer):
 			img_shop, img_custom, sim, label_shop, label_custom = self._dataloader.load_data(state_dict[self.phase])
 			# img_shop -= self._meanValue
 			# img_custom -= self._meanValue
+			# img_shop = self._transformer.preprocess('data', img_shop)
+			# img_custom = self._transformer.preprocess('data', img_custom)
 			if self._towlabel != None and self._towlabel == True:
 				towsimList.append([sim, 1-sim])
 
@@ -85,9 +105,6 @@ class MydataLayer(caffe.Layer):
 		simList = simList.reshape(self._batchSize,1,1,1)
 		labelShopList = labelShopList.reshape(self._batchSize,1,1,1)
 		labelCustomList = labelCustomList.reshape(self._batchSize,1,1,1)
-
-		top[0].reshape(*shoplist.shape)
-		top[1].reshape(*customlist.shape)
 
 		# do your magic here... feed **one** batch to `top`
 		top[0].data[...] = shoplist
@@ -109,16 +126,6 @@ class MydataLayer(caffe.Layer):
 		# print 'MydataLayer.backward begin'
 		pass
 		# print 'MydataLayer.backward end'
-
-rootPath = r'/dataset/DeepFashion/DeepFashion-Consumer-to-shop/'
-model = r'/caffe/models/bvlc_googlenet/bvlc_googlenet.caffemodel'
-deploy = r'/caffe/models/bvlc_googlenet/deploy.prototxt'	
-if platform.system() == 'Windows':
-	rootPath = r'D:/LHF/Clothing/DeepFashion/'
-	model = r'../../models/bvlc_googlenet/bvlc_googlenet.caffemodel'
-	deploy = r'../../models/bvlc_googlenet/deploy.prototxt'
-
-evalFile = os.path.join(rootPath, r'Eval/list_eval_partition.txt.neg')
 
 class MyfeatureLayer(caffe.Layer):
 	def setup(self, bottom, top):
@@ -160,6 +167,16 @@ class MyfeatureLayer(caffe.Layer):
 
 	def backward(self,bottom,top):
 		pass
+
+def getTransformer(shape):
+	transformer = caffe.io.Transformer({'data': shape})
+	transformer.set_transpose('data', (2,0,1))
+	transformer.set_mean('data', np.load(meanfile).mean(1).mean(1))
+	transformer.set_raw_scale('data', 255)
+	transformer.set_channel_swap('data', (2,1,0))
+
+	return transformer
+
 
 class DataLoader(object):
  	"""docstring for ClassName"""
@@ -206,6 +223,10 @@ class DataLoader(object):
 					train.append(line)
 				else:
 					val.append(line)
+		
+		# sizeLevevl = 10000
+		# test = train[4*sizeLevevl:5*sizeLevevl]
+		# train = train[:4*sizeLevevl]
 
 		if shuffle:
 			# 打乱文件行顺序
@@ -222,12 +243,17 @@ class DataLoader(object):
 		print "size = %s, test = %s, val = %s" % (len(train), len(test), len(val))
 		del tmp, test, train, val
 
+	def load_image(self, file):
+		img = cv2.imread(file)
+		img = cv2.resize(img,(224, 224)).transpose(2,0,1)
+
+		return img
+
 	def load_image2(self, file1, file2, data):
 		
 		# custom image
-		# img1 = cv2.imread(file1).transpose(2,0,1)
-		img1 = cv2.imread(file1)
-		img1 = cv2.resize(img1,(224, 224)).transpose(2,0,1)
+		img1 = self.load_image(file1)
+		# img1 = caffe.io.load_image(file1)
 
 		# shop image
 		if data[1] == self._pre['file']:
@@ -236,8 +262,8 @@ class DataLoader(object):
 			if not os.path.isfile(file2):
 				return self.load_data()
 			# img2 = cv2.imread(file2).transpose(2,0,1)
-			img2 = cv2.imread(file2)
-			img2 = cv2.resize(img2,(224, 224)).transpose(2,0,1)
+			img2 = self.load_image(file2)
+			# img2 = caffe.io.load_image(file2)
 			self._pre['file'] = data[1]
 			self._pre['img'] = img2
 
@@ -281,12 +307,155 @@ class DataLoader(object):
 		img_shop, img_custom, sim = self.load_image2(file1, file2, data)
 		return img_shop, img_custom, sim, label_shop, label_custom
 
+	def getFileIter(self, state):
+		it = None
+		if state == 'test':
+			it = self.test_fileIter
+		if state == 'train':
+			it = self.train_fileIter
+		else:
+			it = self.val_fileIter
 
-def check_params(params):
+		return it
+
+class DataProcessLayer(caffe.Layer):
+	
+	def setup(self, bottom, top):
+		print 'DataProcessLayer.setup begin'
+		params = eval(self.param_str)
+
+		# Check the paramameters for validity.
+		# check_params(params, ['datasize'])
+
+		self._batchSize = len(bottom[0].data[...])
+		self._batchSize = self._batchSize*2
+		self._topnum = 3
+		
+		if len(bottom) != 3:
+			   raise Exception('must have 3 input')
+
+		if len(top) != self._topnum :
+			   raise Exception('must have exactly %s outputs' % self._topnum )
+
+		for i in xrange(self._topnum -1):
+			top[i].reshape(self._batchSize, 3, 224, 224)
+
+		top[self._topnum-1].reshape(self._batchSize,1,1,1)
+
+		print 'DataProcessLayer.setup end'
+
+	def reshape(self,bottom,top):
+
+		# print 'MydataLayer.reshape begin'
+		pass
+		# print 'MydataLayer.reshape end'
+
+	def forward(self,bottom,top): 
+		# print 'MydataLayer.forward begin'
+		simList = [1 for x in xrange(self._batchSize/2)]
+		simList.extend([0 for x in xrange(self._batchSize/2)])
+		simList = np.array(simList, dtype = np.int8)
+		simList = simList.reshape(self._batchSize,1,1,1)
+
+		top[0].data[:self._batchSize/2, ...] = bottom[0].data[...]
+		top[0].data[self._batchSize/2:, ...] = np.copy(bottom[0].data[...])
+
+		top[1].data[:self._batchSize/2, ...] = bottom[1].data[...]
+		top[1].data[self._batchSize/2:, ...] = bottom[2].data[...]
+
+		top[2].data[...] = simList
+
+		# shuffle
+		index = range(self._batchSize)
+		random.shuffle(index)
+		for i in xrange(self._topnum):
+			top[i].data[...] = top[i].data[index, ...]
+		
+	def backward(self, top, propagate_down, bottom):
+		# no back-prop for input layers
+		# print 'MydataLayer.backward begin'
+		pass
+		# print 'MydataLayer.backward end'
+
+class NegativeCacheLayer(caffe.Layer):
+	
+	def setup(self, bottom, top):
+		print 'NegativeCacheLayer.setup begin'
+		params = eval(self.param_str)
+
+		# Check the paramameters for validity.
+		check_params(params, ['batch_size','data_size',])
+
+		self._datasize = int(params['data_size'])
+		self._type = params.get('type', 'custom')
+		self._processNum = 0
+		self._index = int(self._processNum/self._datasize)%10
+		self._batchSize = int(params['batch_size'])
+
+		self._imgList = None
+		self._trainList = self.getNewNegative('train', 0)
+		self._testList = self.getNewNegative('test', 0)
+		self._imgList = self._trainList
+		self._bottom = 1
+		if len(bottom) != self._bottom:
+			   raise Exception('must have %s input' % self._bottom )
+
+		if len(top) != 1 :
+			   raise Exception('must have exactly 1 outputs')
+
+		top[0].reshape(self._batchSize, 3, 224, 224)
+
+		print 'NegativeCacheLayer.setup end'
+
+	def reshape(self,bottom,top):
+
+		# print 'MydataLayer.reshape begin'
+		pass
+		# print 'MydataLayer.reshape end'
+
+	def forward(self,bottom,top): 
+		if state_dict[self.phase] == 'train':
+			curIndex = int(self._processNum/self._datasize)%10
+			if self._index != curIndex:
+				self._index = curIndex
+				self._trainList = self.getNewNegative('train', self._index)
+				
+			self._imgList = self._trainList
+		else:
+			self._imgList = self._testList
+
+		index = random.sample(xrange(1000), self._batchSize)
+		negative = self._imgList[index]
+		negative = np.array(negative, dtype = np.float32)
+
+		# do your magic here... feed **one** batch to `top`
+		top[0].data[...] = negative
+
+		if state_dict[self.phase] == 'train':
+			self._processNum += self._batchSize
+			if self._bottom  > 0:
+				self._imgList[index] = np.copy(bottom[0].data[...])
+		
+	def backward(self, top, propagate_down, bottom):
+		# no back-prop for input layers
+		# print 'MydataLayer.backward begin'
+		pass
+		# print 'MydataLayer.backward end'
+
+	def getNewNegative(self, state = 'train', index = 0):
+		imgList = self._imgList
+		imghdf = r'/caffe/examples/tes/data/negative/%s_custom_%s.h5' % (state, index)
+		print 'get new negative: %s' % imghdf
+		with h5.File(imghdf,'r') as h:
+			imgList = h['data'][:]
+
+		return imgList
+
+def check_params(params, required = None):
     """
     A utility function to check the parameters for the data layers.
     """
     
-    required = ['batch_size',]
+    required = required or ['batch_size',]
     for r in required:
         assert r in params.keys(), 'Params must include {}'.format(r)

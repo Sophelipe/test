@@ -14,7 +14,7 @@ if platform.system() == 'Windows':
 	rootPath = r'D:/LHF/Clothing/DeepFashion/'
 
 evalFile = os.path.join(rootPath, r'Eval/list_eval_partition.txt')
-negative = 3
+negative = 1
 with open(evalFile) as f:
 	num = int(f.readline())
 
