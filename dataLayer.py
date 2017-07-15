@@ -326,21 +326,29 @@ class DataProcessLayer(caffe.Layer):
 
 		# Check the paramameters for validity.
 		# check_params(params, ['datasize'])
+		self._isCrossLabel = params.get('crosslabel', False)
 
 		self._batchSize = len(bottom[0].data[...])
 		self._batchSize = self._batchSize*2
 		self._topnum = 3
 		
+		if self._isCrossLabel:
+			self._topnum += 1
+
 		if len(bottom) != 3:
 			   raise Exception('must have 3 input')
 
 		if len(top) != self._topnum :
 			   raise Exception('must have exactly %s outputs' % self._topnum )
 
-		for i in xrange(self._topnum -1):
+		imageNum = 2
+		for i in xrange(imageNum):
 			top[i].reshape(self._batchSize, 3, 224, 224)
 
-		top[self._topnum-1].reshape(self._batchSize,1,1,1)
+		top[imageNum].reshape(self._batchSize,1,1,1)
+
+		if self._isCrossLabel:
+			top[self._topnum-1].reshape(self._batchSize,2,1,1)
 
 		print 'DataProcessLayer.setup end'
 
@@ -356,6 +364,7 @@ class DataProcessLayer(caffe.Layer):
 		simList.extend([0 for x in xrange(self._batchSize/2)])
 		simList = np.array(simList, dtype = np.int8)
 		simList = simList.reshape(self._batchSize,1,1,1)
+		
 
 		top[0].data[:self._batchSize/2, ...] = bottom[0].data[...]
 		top[0].data[self._batchSize/2:, ...] = np.copy(bottom[0].data[...])
@@ -364,6 +373,10 @@ class DataProcessLayer(caffe.Layer):
 		top[1].data[self._batchSize/2:, ...] = bottom[2].data[...]
 
 		top[2].data[...] = simList
+		
+		if self._isCrossLabel:
+			crosslabelList = np.concatenate((1-simList, simList) ,1)
+			top[3].data[...] = crosslabelList
 
 		# shuffle
 		index = range(self._batchSize)
@@ -376,6 +389,20 @@ class DataProcessLayer(caffe.Layer):
 		# print 'MydataLayer.backward begin'
 		pass
 		# print 'MydataLayer.backward end'
+
+class DataRecordLayer(caffe.Layer):
+	
+	def setup(self, bottom, top):
+		self._file = open(r'/caffe/record.txt', 'w')
+
+	def reshape(self,bottom,top):
+		pass
+
+	def forward(self,bottom,top):
+		self._file.write(np.array2string(bottom[0].data[...]) + '\n')
+
+	def backward(self, top, propagate_down, bottom):
+		pass
 
 class NegativeCacheLayer(caffe.Layer):
 	
